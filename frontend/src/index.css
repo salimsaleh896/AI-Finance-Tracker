@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+body {
+  background-color: theme('colors.slate.950');
+  color: theme('colors.white');
+  @apply antialiased;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: theme('colors.slate.900');
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: theme('colors.slate.800');
+  border-radius: 9999px;
+}
