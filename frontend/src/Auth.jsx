@@ -15,9 +15,14 @@ const Auth = ({ setUser }) => {
         setError('');
         const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
 
+        // NEW: Define exactly what to send based on the mode
+        const payload = isLogin
+            ? { email: form.email, password: form.password }
+            : { username: form.username, email: form.email, password: form.password };
+
         try {
-            // UPDATED: Using the dynamic API_URL
-            const res = await axios.post(`${API_URL}${endpoint}`, form);
+            // UPDATED: Send 'payload' instead of the whole 'form'
+            const res = await axios.post(`${API_URL}${endpoint}`, payload);
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('username', res.data.username);
             setUser(res.data.username);
