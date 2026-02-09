@@ -16,17 +16,24 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
 
+  // --- FIX: Added Bearer prefix to satisfy Backend Authentication ---
   const fetchTransactions = async () => {
     const token = localStorage.getItem('token');
+    if (!token) return;
+
     try {
       const res = await axios.get(`${API_URL}/api/transactions`, {
-        headers: { Authorization: token }
+        headers: { Authorization: `Bearer ${token}` } // Corrected header
       });
       setTransactions(res.data);
-    } catch (err) { console.error("Fetch error:", err); }
+    } catch (err) {
+      console.error("Fetch error:", err.response?.data?.message || err.message);
+    }
   };
 
-  useEffect(() => { if (user) fetchTransactions(); }, [user]);
+  useEffect(() => {
+    if (user) fetchTransactions();
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -35,28 +42,38 @@ const App = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.title || !form.amount) return;
+
     setLoading(true);
     const token = localStorage.getItem('token');
+
     try {
       await axios.post(`${API_URL}/api/transactions`, form, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` } // Consistent Bearer format
       });
       setForm({ title: '', amount: '' });
-      fetchTransactions();
-    } catch (err) { console.error("Submit error:", err); }
-    setLoading(false);
+      await fetchTransactions(); // Refresh the list after adding
+    } catch (err) {
+      console.error("Submit error:", err.response?.data?.message || err.message);
+      alert("Transaction failed. Check console for details.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteTransaction = async (id) => {
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`${API_URL}/api/transactions/${id}`, {
-        headers: { Authorization: token }
+        headers: { Authorization: `Bearer ${token}` } // Corrected header
       });
       fetchTransactions();
-    } catch (err) { console.error("Delete error:", err); }
+    } catch (err) {
+      console.error("Delete error:", err.response?.data?.message || err.message);
+    }
   };
 
+  // --- Logic for Filtering & Charts ---
   const filteredTransactions = transactions.filter(t => {
     if (filter === 'all') return true;
     const tDate = new Date(t.date);
@@ -91,7 +108,7 @@ const App = () => {
           <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-right shadow-lg">
             <p className="text-slate-400 text-[10px] uppercase tracking-wider">User: {user}</p>
             <p className="text-2xl font-mono text-white">
-              Ksh {filteredTransactions.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+              Ksh {filteredTransactions.reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()}
             </p>
           </div>
           <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-red-400">
@@ -101,6 +118,7 @@ const App = () => {
       </header>
 
       <div className="grid lg:grid-cols-3 gap-8">
+        {/* ADD TRANSACTION FORM */}
         <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 h-fit shadow-xl">
           <h2 className="flex items-center gap-2 mb-6 text-xl font-semibold text-white">
             <PlusCircle className="text-blue-400" /> Add Transaction
@@ -127,6 +145,7 @@ const App = () => {
           </form>
         </section>
 
+        {/* AI INSIGHTS CHART */}
         <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
           <h2 className="flex items-center gap-2 mb-6 text-xl font-semibold text-white">
             <PieIcon className="text-purple-400" /> AI Insights
@@ -153,6 +172,7 @@ const App = () => {
           </div>
         </section>
 
+        {/* RECENT ACTIVITY LIST */}
         <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-h-[500px] overflow-y-auto shadow-xl">
           <div className="flex justify-between items-center mb-6">
             <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
