@@ -1,43 +1,32 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Check if API Key exists to prevent crash
+if (!process.env.GEMINI_API_KEY) {
+    console.error("❌ ERROR: GEMINI_API_KEY is missing in Environment Variables!");
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function categorizeTransaction(title) {
     try {
-        console.log(`🧠 Calling Gemini API for: "${title}"...`);
+        // Use the faster, more stable flash model
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-
-        // SHARPENED PROMPT: Specifically addresses "tools" vs "food"
-        const prompt = `Categorize the expense title: "${title}". 
-        Choose ONLY ONE from this list: Food, Transport, Entertainment, Shopping, Health, Utilities, Salary.
-
-        Rules:
-        1. If it is a tool, hardware, or general object (like a panga, hammer, or phone), use "Shopping".
-        2. If it is a specific food, grocery, or restaurant, use "Food".
-        3. If it is a bill (electricity, water, internet), use "Utilities".
-        4. If you are totally unsure, use "Shopping".
-        
-        Reply with ONLY the category word.`;
+        const prompt = `Categorize this expense title: "${title}". 
+        Respond with ONLY ONE word from this list: Food, Transport, Shopping, Bills, Entertainment, Health, Other. 
+        Do not include any punctuation or extra text.`;
 
         const result = await model.generateContent(prompt);
-        const response = result.response;
-        const category = response.text().trim();
+        const response = await result.response;
+        const text = response.text().trim().replace(/[^a-zA-Z]/g, ''); // Clean extra characters
 
-        console.log(`✅ AI Categorized as: ${category}`);
-        return category;
+        console.log(`🤖 AI Suggestion for "${title}": ${text}`);
+        return text || "Other";
 
     } catch (error) {
-        console.error("⚠️ AI Error - Using Fallback:", error.message);
-
-        // SMART LOGiC(Backup for when API is down)
-        const input = title.toLowerCase();
-        if (input.includes('movie') || input.includes('cinema') || input.includes('netflix')) return 'Entertainment';
-        if (input.includes('panga') || input.includes('tool') || input.includes('amazon') || input.includes('store')) return 'Shopping';
-        if (input.includes('food') || input.includes('juice') || input.includes('mcdonalds') || input.includes('pizza')) return 'Food';
-        if (input.includes('uber') || input.includes('taxi') || input.includes('bus')) return 'Transport';
-
-        return "Shopping";
+        // SAFETY CATCH: If AI fails, return 'Other' so the database still saves
+        console.error("⚠️ Gemini AI Error:", error.message);
+        return "Other";
     }
 }
 
