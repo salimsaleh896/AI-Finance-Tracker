@@ -31,18 +31,19 @@ mongoose.connect(process.env.MONGO_URI)
 // --- Auth Middleware ---
 const authenticate = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ message: "Access Denied: No Token Provided" });
+    if (!authHeader) return res.status(401).json({ message: "No Token Provided" });
 
-    const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+    // This handles: "Bearer <token>" OR just "<token>"
+    const token = authHeader.split(' ').pop();
 
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        req.user = verified;
+    jwt.verify(token, 'salim_secret_123', (err, user) => {
+        if (err) {
+            console.error("JWT Verify Error:", err.message); // This shows in Render logs
+            return res.status(401).json({ message: "Invalid Token" });
+        }
+        req.user = user;
         next();
-    } catch (err) {
-        console.error("Auth Middleware Error:", err.message);
-        res.status(401).json({ message: "Invalid or Expired Token" });
-    }
+    });
 };
 
 // --- Auth Routes ---
