@@ -15,7 +15,7 @@ const SECRET_KEY = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
 
 // Middleware
 app.use(express.json());
-// CORS FIXED: Allows Vercel to communicate with Render securely
+// CORS FIXED: Explicitly allows Vercel and local testing
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -30,9 +30,8 @@ mongoose.connect(process.env.MONGO_URI)
 // --- Auth Middleware ---
 const authenticate = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ message: "Access Denied" });
+    if (!authHeader) return res.status(401).json({ message: "Access Denied: No Token Provided" });
 
-    // Support "Bearer <token>" format
     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
 
     try {
@@ -40,35 +39,39 @@ const authenticate = (req, res, next) => {
         req.user = verified;
         next();
     } catch (err) {
-        res.status(400).json({ message: "Invalid Token" });
+        console.error("Auth Middleware Error:", err.message);
+        res.status(401).json({ message: "Invalid or Expired Token" });
     }
 };
 
 // --- Auth Routes ---
 app.post('/api/auth/register', async (req, res) => {
-    const { username, email, password } = req.body; // Added email
+    const { username, email, password } = req.body;
     try {
+        if (!username || !email || !password) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({ username, email, password: hashedPassword });
         res.json({ message: "User created!", username: user.username });
     } catch (err) {
-        // Log the error for debugging in Render logs
-        console.error("Register Error:", err);
+        console.error("Register Error:", err.message);
         res.status(400).json({ message: "User or Email already exists" });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body; // Look for email, not username
+    const { email, password } = req.body;
     try {
         const user = await User.findOne({ email });
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(400).json({ message: "Invalid credentials" });
+            return res.status(400).json({ message: "Invalid email or password" });
         }
         const token = jwt.sign({ userId: user._id }, SECRET_KEY, { expiresIn: '7d' });
         res.json({ token, username: user.username });
     } catch (err) {
-        res.status(500).json({ message: "Server Error" });
+        console.error("Login Error:", err.message);
+        res.status(500).json({ message: "Server Error during login" });
     }
 });
 
@@ -77,24 +80,41 @@ app.get('/api/transactions', authenticate, async (req, res) => {
     try {
         const transactions = await Transaction.find({ userId: req.user.userId }).sort({ date: -1 });
         res.json(transactions);
-    } catch (err) { res.status(500).json({ message: "Error fetching transactions" }); }
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching transactions" });
+    }
 });
 
 app.post('/api/transactions', authenticate, async (req, res) => {
     const { title, amount } = req.body;
+
+    // Log for debugging in Render logs
+    console.log(`Attempting to add: ${title} - ${amount} for UserID: ${req.user.userId}`);
+
     try {
+        if (!title || !amount) {
+            return res.status(400).json({ message: "Title and amount are required" });
+        }
+
+        // 1. Get AI Category
         const category = await categorizeTransaction(title);
+        console.log("AI Categorized as:", category);
+
+        // 2. Create Transaction object
         const newTransaction = new Transaction({
             userId: req.user.userId,
             title,
             amount: Number(amount),
-            category
+            category: category || 'Other'
         });
+
+        // 3. Save to DB
         await newTransaction.save();
         res.json(newTransaction);
+
     } catch (err) {
-        console.error("Transaction Error:", err);
-        res.status(500).json({ message: "AI Categorization failed" });
+        console.error("Detailed Transaction Error:", err.message);
+        res.status(400).json({ message: "Transaction failed: " + err.message });
     }
 });
 
@@ -104,9 +124,11 @@ app.delete('/api/transactions/:id', authenticate, async (req, res) => {
             _id: req.params.id,
             userId: req.user.userId
         });
-        if (!deleted) return res.status(404).json({ message: "Not found or unauthorized" });
+        if (!deleted) return res.status(404).json({ message: "Transaction not found" });
         res.json({ message: "Deleted successfully" });
-    } catch (err) { res.status(500).json({ message: "Delete failed" }); }
+    } catch (err) {
+        res.status(500).json({ message: "Delete failed" });
+    }
 });
 
 const PORT = process.env.PORT || 5000;

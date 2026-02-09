@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 
 const TransactionSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // NEW
-    title: String,
-    amount: Number,
-    category: String,
+    // IMPORTANT: This must match what you send in server.js
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    title: { type: String, required: true },
+    amount: { type: Number, required: true },
+    category: { type: String, default: 'Other' },
     date: { type: Date, default: Date.now }
 });
 
