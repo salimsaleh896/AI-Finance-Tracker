@@ -21,9 +21,9 @@ const Auth = ({ setUser }) => {
             : { username: form.username, email: form.email, password: form.password };
 
         try {
-            // UPDATED: Send 'payload' instead of the whole 'form'
+            // Auth.jsx - Inside your login/register success
             const res = await axios.post(`${API_URL}${endpoint}`, payload);
-            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('token', res.data.token); // SAVE RAW TOKEN ONLY
             localStorage.setItem('username', res.data.username);
             setUser(res.data.username);
         } catch (err) {
