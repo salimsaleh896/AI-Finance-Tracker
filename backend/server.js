@@ -11,8 +11,9 @@ const Transaction = require('./models/Transaction');
 const { categorizeTransaction } = require('./gemini');
 
 const app = express();
-const SECRET_KEY = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
-
+//const SECRET_KEY = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
+// TO THIS (Hardcode it for one minute just to test):
+const SECRET_KEY = 'salihnajsdkjbdsxgashsbdkefcbcdsdgd';
 // Middleware
 app.use(express.json());
 // CORS FIXED: Explicitly allows Vercel and local testing
