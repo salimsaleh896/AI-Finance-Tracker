@@ -39,7 +39,7 @@ const App = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.post(`${API_URL}/api/transactions`, form, {
-        headers: { Authorization: token }
+        headers: { Authorization: `Bearer ${token}` }
       });
       setForm({ title: '', amount: '' });
       fetchTransactions();
