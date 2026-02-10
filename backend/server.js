@@ -5,18 +5,14 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Models
 const User = require('./models/User');
 const Transaction = require('./models/Transaction');
 const { categorizeTransaction } = require('./gemini');
 
 const app = express();
-//const SECRET_KEY = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
-// TO THIS (Hardcode it for one minute just to test):
 const SECRET_KEY = 'salim_secret_123';
-// Middleware
+
 app.use(express.json());
-// CORS FIXED: Explicitly allows Vercel and local testing
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -28,27 +24,23 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ MongoDB Connected Successfully!"))
     .catch(err => console.log("❌ MongoDB Connection Error:", err));
 
-// --- Auth Middleware ---
+// --- SIMPLIFIED AUTH MIDDLEWARE ---
 const authenticate = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ message: "No Token Provided" });
+    // Get the raw string from Authorization header
+    const token = req.headers.authorization;
 
-    // FIX: Ensure we only get the second part if 'Bearer ' exists
-    const token = authHeader.includes('Bearer ')
-        ? authHeader.split(' ')[1]
-        : authHeader;
-
-    // Check if the token is empty after splitting
-    if (!token || token === 'null' || token === 'undefined') {
-        return res.status(401).json({ message: "Malformed Token format" });
+    if (!token || token === 'null' || token === 'undefined' || token.length < 10) {
+        console.error("Auth Error: Token is missing or too short");
+        return res.status(401).json({ message: "No Valid Token Provided" });
     }
 
-    jwt.verify(token, 'salim_secret_123', (err, user) => {
+    // We verify the RAW token string directly
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
         if (err) {
             console.error("JWT Verify Error:", err.message);
-            return res.status(401).json({ message: "Invalid or Expired Token" });
+            return res.status(401).json({ message: "Invalid Token" });
         }
-        req.user = user;
+        req.user = decoded; // This contains the userId
         next();
     });
 };
@@ -57,14 +49,11 @@ const authenticate = (req, res, next) => {
 app.post('/api/auth/register', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        if (!username || !email || !password) {
-            return res.status(400).json({ message: "All fields are required" });
-        }
+        if (!username || !email || !password) return res.status(400).json({ message: "All fields are required" });
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await User.create({ username, email, password: hashedPassword });
         res.json({ message: "User created!", username: user.username });
     } catch (err) {
-        console.error("Register Error:", err.message);
         res.status(400).json({ message: "User or Email already exists" });
     }
 });
@@ -76,10 +65,10 @@ app.post('/api/auth/login', async (req, res) => {
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
+        // Sign the token
         const token = jwt.sign({ userId: user._id }, SECRET_KEY, { expiresIn: '7d' });
         res.json({ token, username: user.username });
     } catch (err) {
-        console.error("Login Error:", err.message);
         res.status(500).json({ message: "Server Error during login" });
     }
 });
@@ -96,43 +85,25 @@ app.get('/api/transactions', authenticate, async (req, res) => {
 
 app.post('/api/transactions', authenticate, async (req, res) => {
     const { title, amount } = req.body;
-
-    // Log for debugging in Render logs
-    console.log(`Attempting to add: ${title} - ${amount} for UserID: ${req.user.userId}`);
-
     try {
-        if (!title || !amount) {
-            return res.status(400).json({ message: "Title and amount are required" });
-        }
-
-        // 1. Get AI Category
+        if (!title || !amount) return res.status(400).json({ message: "Title and amount are required" });
         const category = await categorizeTransaction(title);
-        console.log("AI Categorized as:", category);
-
-        // 2. Create Transaction object
         const newTransaction = new Transaction({
             userId: req.user.userId,
             title,
             amount: Number(amount),
             category: category || 'Other'
         });
-
-        // 3. Save to DB
         await newTransaction.save();
         res.json(newTransaction);
-
     } catch (err) {
-        console.error("Detailed Transaction Error:", err.message);
         res.status(400).json({ message: "Transaction failed: " + err.message });
     }
 });
 
 app.delete('/api/transactions/:id', authenticate, async (req, res) => {
     try {
-        const deleted = await Transaction.findOneAndDelete({
-            _id: req.params.id,
-            userId: req.user.userId
-        });
+        const deleted = await Transaction.findOneAndDelete({ _id: req.params.id, userId: req.user.userId });
         if (!deleted) return res.status(404).json({ message: "Transaction not found" });
         res.json({ message: "Deleted successfully" });
     } catch (err) {
