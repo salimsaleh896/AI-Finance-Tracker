@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Auth from './Auth';
-import { PlusCircle, Wallet, PieChart as PieIcon, LogOut, Calendar } from 'lucide-react';
+import { PlusCircle, Wallet, PieChart as PieIcon, LogOut } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 const COLORS = ['#60a5fa', '#34d399', '#f87171', '#fbbf24', '#a78bfa', '#f472b6'];
-
-// Use environment variable for production, fallback to localhost for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const App = () => {
@@ -16,14 +14,14 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('all');
 
-  // --- FIX: Added Bearer prefix to satisfy Backend Authentication ---
+  // --- SYNCED: Sends RAW token to match new Backend Middleware ---
   const fetchTransactions = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
       const res = await axios.get(`${API_URL}/api/transactions`, {
-        headers: { Authorization: `Bearer ${token}` } // Corrected header
+        headers: { Authorization: token } // No "Bearer" prefix
       });
       setTransactions(res.data);
     } catch (err) {
@@ -49,13 +47,12 @@ const App = () => {
 
     try {
       await axios.post(`${API_URL}/api/transactions`, form, {
-        headers: { Authorization: `Bearer ${token}` } // Consistent Bearer format
+        headers: { Authorization: token } // No "Bearer" prefix
       });
       setForm({ title: '', amount: '' });
-      await fetchTransactions(); // Refresh the list after adding
+      await fetchTransactions();
     } catch (err) {
       console.error("Submit error:", err.response?.data?.message || err.message);
-      alert("Transaction failed. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -65,15 +62,15 @@ const App = () => {
     const token = localStorage.getItem('token');
     try {
       await axios.delete(`${API_URL}/api/transactions/${id}`, {
-        headers: { Authorization: `Bearer ${token}` } // Corrected header
+        headers: { Authorization: token } // No "Bearer" prefix
       });
       fetchTransactions();
     } catch (err) {
-      console.error("Delete error:", err.response?.data?.message || err.message);
+      console.error("Delete error:", err.message);
     }
   };
 
-  // --- Logic for Filtering & Charts ---
+  // Logic for Charts
   const filteredTransactions = transactions.filter(t => {
     if (filter === 'all') return true;
     const tDate = new Date(t.date);
@@ -105,27 +102,26 @@ const App = () => {
           AI Finance Tracker
         </h1>
         <div className="flex items-center gap-6">
-          <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-right shadow-lg">
-            <p className="text-slate-400 text-[10px] uppercase tracking-wider">User: {user}</p>
+          <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 text-right">
+            <p className="text-slate-400 text-[10px] uppercase">User: {user}</p>
             <p className="text-2xl font-mono text-white">
               Ksh {filteredTransactions.reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()}
             </p>
           </div>
-          <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-red-400">
+          <button onClick={handleLogout} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
             <LogOut size={24} />
           </button>
         </div>
       </header>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* ADD TRANSACTION FORM */}
-        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 h-fit shadow-xl">
+        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
           <h2 className="flex items-center gap-2 mb-6 text-xl font-semibold text-white">
             <PlusCircle className="text-blue-400" /> Add Transaction
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <input
-              className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg outline-none focus:border-blue-500 transition-all text-white placeholder:text-slate-600"
+              className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-white"
               placeholder="Title (e.g. Cinema)"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -133,81 +129,61 @@ const App = () => {
             />
             <input
               type="number"
-              className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg outline-none focus:border-blue-500 transition-all text-white placeholder:text-slate-600"
+              className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-white"
               placeholder="Amount"
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               required
             />
-            <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold transition-all text-white disabled:opacity-50 shadow-lg shadow-blue-900/20">
+            <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold text-white">
               {loading ? 'AI Categorizing...' : 'Track with AI'}
             </button>
           </form>
         </section>
 
-        {/* AI INSIGHTS CHART */}
-        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800">
           <h2 className="flex items-center gap-2 mb-6 text-xl font-semibold text-white">
             <PieIcon className="text-purple-400" /> AI Insights
           </h2>
           <div className="h-64">
-            {filteredTransactions.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-sm text-center">
-                <PieIcon size={40} className="mb-2 opacity-20" />
-                No data for this period
-              </div>
-            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={chartData} innerRadius={60} outerRadius={80} dataKey="value">
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </section>
 
-        {/* RECENT ACTIVITY LIST */}
-        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-h-[500px] overflow-y-auto shadow-xl">
+        <section className="bg-slate-900 p-6 rounded-2xl border border-slate-800 max-h-[500px] overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
-              <Wallet className="text-emerald-400" /> Activity
-            </h2>
-            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <h2 className="text-xl font-semibold text-white">Activity</h2>
+            <div className="flex gap-1">
               {['all', 'week', 'month'].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1 text-[10px] uppercase font-bold rounded transition-all ${filter === f ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                >
+                <button key={f} onClick={() => setFilter(f)} className={`px-2 py-1 text-[10px] rounded ${filter === f ? 'bg-blue-600' : 'bg-slate-800 text-slate-400'}`}>
                   {f}
                 </button>
               ))}
             </div>
           </div>
-
           <div className="space-y-3">
-            {filteredTransactions.length > 0 ? filteredTransactions.map((t) => (
-              <div key={t._id} className="flex justify-between items-center bg-slate-950 p-4 rounded-xl border border-slate-900 group hover:border-slate-700 transition-all">
+            {filteredTransactions.map((t) => (
+              <div key={t._id} className="flex justify-between items-center bg-slate-950 p-4 rounded-xl">
                 <div>
-                  <p className="font-medium text-white">{t.title}</p>
-                  <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-blue-300 uppercase font-bold tracking-tighter">
-                    {t.category}
-                  </span>
+                  <p className="text-white">{t.title}</p>
+                  <span className="text-[10px] text-blue-300 uppercase">{t.category}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <p className="text-red-400 font-mono font-bold">-Ksh {Number(t.amount).toLocaleString()}</p>
-                  <button onClick={() => deleteTransaction(t._id)} className="text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 text-xl font-bold">×</button>
+                  <p className="text-red-400">-Ksh {Number(t.amount).toLocaleString()}</p>
+                  <button onClick={() => deleteTransaction(t._id)} className="text-slate-700 hover:text-red-500">×</button>
                 </div>
               </div>
-            )) : (
-              <p className="text-center text-slate-600 text-sm py-10">No transactions found.</p>
-            )}
+            ))}
           </div>
         </section>
       </div>
