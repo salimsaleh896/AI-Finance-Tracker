@@ -13,7 +13,7 @@ async function categorizeTransaction(title) {
         const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const prompt = `Categorize this expense title: "${title}". 
-        Respond with ONLY ONE word from this list: Food, Transport, Shopping, Bills, Entertainment, Health, Other. 
+        Respond with ONLY ONE word from this list: Food, Transport, Shopping, Bills, Entertainment, Health, salary, Other. 
         Do not include any punctuation or extra text.`;
 
         const result = await model.generateContent(prompt);
