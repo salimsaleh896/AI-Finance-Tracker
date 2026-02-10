@@ -10,7 +10,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 async function categorizeTransaction(title) {
     try {
         // Use the faster, more stable flash model
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const prompt = `Categorize this expense title: "${title}". 
         Respond with ONLY ONE word from this list: Food, Transport, Shopping, Bills, Entertainment, Health, Other. 
