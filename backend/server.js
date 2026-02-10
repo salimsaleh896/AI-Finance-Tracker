@@ -33,13 +33,20 @@ const authenticate = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ message: "No Token Provided" });
 
-    // This handles: "Bearer <token>" OR just "<token>"
-    const token = authHeader.split(' ').pop();
+    // FIX: Ensure we only get the second part if 'Bearer ' exists
+    const token = authHeader.includes('Bearer ')
+        ? authHeader.split(' ')[1]
+        : authHeader;
+
+    // Check if the token is empty after splitting
+    if (!token || token === 'null' || token === 'undefined') {
+        return res.status(401).json({ message: "Malformed Token format" });
+    }
 
     jwt.verify(token, 'salim_secret_123', (err, user) => {
         if (err) {
-            console.error("JWT Verify Error:", err.message); // This shows in Render logs
-            return res.status(401).json({ message: "Invalid Token" });
+            console.error("JWT Verify Error:", err.message);
+            return res.status(401).json({ message: "Invalid or Expired Token" });
         }
         req.user = user;
         next();
