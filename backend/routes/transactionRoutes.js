@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 
-// @route   POST /api/transactions
-// @desc    Add a new transaction
-const { categorizeTransaction } = require('../gemini'); // Import the AI helper
+// @route   POST /api/transaction
+const { categorizeTransaction } = require
 
 router.post('/', async (req, res) => {
     try {
@@ -28,7 +27,6 @@ router.post('/', async (req, res) => {
     }
 });
 // @route   GET /api/transactions
-// @desc    Get all transactions
 router.get('/', async (req, res) => {
     try {
         const transactions = await Transaction.find().sort({ date: -1 });

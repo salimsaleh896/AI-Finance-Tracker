@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Check if API Key exists to prevent crash
+
 if (!process.env.GEMINI_API_KEY) {
     console.error("❌ ERROR: GEMINI_API_KEY is missing in Environment Variables!");
 }
@@ -9,7 +9,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function categorizeTransaction(title) {
     try {
-        // Use the faster, more stable flash model
+
         const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const prompt = `Categorize this expense title: "${title}". 
@@ -18,7 +18,7 @@ async function categorizeTransaction(title) {
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        const text = response.text().trim().replace(/[^a-zA-Z]/g, ''); // Clean extra characters
+        const text = response.text().trim().replace(/[^a-zA-Z]/g, '');
 
         console.log(`🤖 AI Suggestion for "${title}": ${text}`);
         return text || "Other";
